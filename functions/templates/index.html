@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pulse Guard AI &mdash; Hypertension Prediction</title>
+  <meta name="description"
+    content="Advanced AI hypertension stage prediction with 18 clinical features and real-time graph analytics." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- Google Translate widget (reads googtrans cookie on load) -->
+  <script src="https://translate.googleapis.com/translate_a/element.js?cb=googleTranslateElementInit" defer></script>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+
+<body>
+  <div class="bg-blobs">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
+  <!-- ── Header ── -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path
+              d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+          </svg>
+        </div>
+        <div>
+          <div class="logo-name">Pulse Guard AI <span class="v2-badge">v2</span></div>
+          <div class="logo-sub">18-Feature Hypertension AI &middot; Ensemble Model</div>
+        </div>
+      </div>
+      <div class="header-controls">
+        <div class="font-controls">
+          <button class="hdr-btn" onclick="changeFontSize(-1)" title="Decrease font size">A-</button>
+          <button class="hdr-btn" onclick="changeFontSize(0)" title="Reset font size">A</button>
+          <button class="hdr-btn" onclick="changeFontSize(1)" title="Increase font size">A+</button>
+        </div>
+        <button class="hdr-btn" id="themeBtn" onclick="toggleTheme()" title="Toggle dark/light mode">&#x1F319;
+          Dark</button>
+        <!-- ── Language Picker ── -->
+        <div class="lang-picker" id="langPicker" style="z-index: 1000;">
+          <button class="hdr-btn lang-trigger" id="langTriggerBtn" onclick="toggleLangDropdown(event)"
+            title="Translate page">
+            🌐 <span id="langCurrent">EN</span> <span class="lang-arrow">▾</span>
+          </button>
+        </div>
+        <!-- Google Translate widget target (hidden) -->
+        <div id="google_translate_element" style="display:none;width:0;height:0;overflow:hidden;position:absolute">
+        </div>
+        <div class="status-cluster"><span class="status-dot"></span><span>Model Active</span></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Progress Bar ── -->
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-inner">
+      <span class="prog-label">Form completion</span>
+      <div class="prog-track">
+        <div class="prog-fill" id="progFill"></div>
+      </div>
+      <span class="prog-pct" id="progPct">0%</span>
+    </div>
+  </div>
+
+  <!-- ── Hero ── -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-badge">&#x1F9E0; Voting Ensemble &middot; 18 Features &middot; Real-time Charts</div>
+      <h1 class="hero-title">Hypertension <span class="glow-text">Stage Prediction</span></h1>
+      <p class="hero-desc">Enter 18 clinical and lifestyle parameters for an AI-powered hypertension risk assessment
+        with graphical analysis and personalized recommendations.</p>
+      <div class="hero-stats">
+        <div class="stat-chip"><strong>9</strong> Algorithms</div>
+        <div class="stat-chip"><strong>18</strong> Features</div>
+        <div class="stat-chip"><strong>4</strong> Stages</div>
+        <div class="stat-chip"><strong>2,000</strong> Records</div>
+        <div class="stat-chip"><strong>Voting Ensemble</strong></div>
+      </div>
+    </div>
+  </section>
+
+  <main class="main">
+
+    <!-- ── Patient Info Bar ── -->
+    <div class="patient-bar">
+      <label for="patientName">Patient / Reference</label>
+      <input type="text" id="patientName" class="patient-input" placeholder="Patient name or ID (optional)"
+        maxlength="60" />
+      <label for="patientAge" style="margin-left:8px">DOB / Age</label>
+      <input type="text" id="patientAge" class="patient-input" placeholder="e.g. 45 years" maxlength="20"
+        style="max-width:130px" />
+    </div>
+
+    <form id="predForm" onsubmit="return false" oninput="updateProgress()">
+
+      <!-- Section 1: Demographics -->
+      <div class="form-section">
+        <div class="section-header">
+          <div class="section-icon">&#x1F464;</div>
+          <div>
+            <h2 class="section-title">Demographic Information</h2>
+            <p class="section-desc">Patient age, gender and body composition</p>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group"><label>Gender <span class="req">*</span></label>
+            <div class="seg-control" id="genderSeg">
+              <button type="button" class="seg-btn active" data-val="0"
+                onclick="setSeg('genderSeg','gender',this)">&#9794; Male</button>
+              <button type="button" class="seg-btn" data-val="1" onclick="setSeg('genderSeg','gender',this)">&#9792;
+                Female</button>
+            </div><input type="hidden" id="gender" value="0" />
+          </div>
+          <div class="form-group"><label>Age Group <span class="req">*</span></label>
+            <select id="age_group" class="select" onchange="updateProgress()">
+              <option value="">Select&hellip;</option>
+              <option value="1">18 &ndash; 34 years</option>
+              <option value="2">35 &ndash; 50 years</option>
+              <option value="3">51 &ndash; 64 years</option>
+              <option value="4">65+ years</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label><span class="medtip" data-tip="Body Mass Index: weight(kg) / height(m)²">BMI Category</span> <span
+                class="req">*</span></label>
+            <div class="seg-control" id="bmiSeg">
+              <button type="button" class="seg-btn active" data-val="0"
+                onclick="setSeg('bmiSeg','bmi_category',this)">Under</button>
+              <button type="button" class="seg-btn" data-val="1"
+                onclick="setSeg('bmiSeg','bmi_category',this)">Normal</button>
+              <button type="button" class="seg-btn" data-val="2"
+                onclick="setSeg('bmiSeg','bmi_category',this)">Over</button>
+              <button type="button" class="seg-btn" data-val="3"
+                onclick="setSeg('bmiSeg','bmi_category',this)">Obese</button>
+            </div><input type="hidden" id="bmi_category" value="0" />
+          </div>
+          <div class="form-group"><label>Exercise Frequency <span class="req">*</span></label>
+            <select id="exercise_frequency" class="select" onchange="updateProgress()">
+              <option value="">Select&hellip;</option>
+              <option value="0">0 days/week (Sedentary)</option>
+              <option value="1">1 day/week</option>
+              <option value="2">2 days/week</option>
+              <option value="3">3 days/week</option>
+              <option value="4">4&ndash;5 days/week</option>
+              <option value="5">Daily (6&ndash;7 days)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: Medical History -->
+      <div class="form-section">
+        <div class="section-header">
+          <div class="section-icon">&#x1F4CB;</div>
+          <div>
+            <h2 class="section-title">Medical History</h2>
+            <p class="section-desc">Co-morbidities, diagnoses, and family background</p>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group"><label>Family History of Hypertension <span class="req">*</span></label>
+            <div class="seg-control" id="famHistSeg">
+              <button type="button" class="seg-btn active" data-val="0"
+                onclick="setSeg('famHistSeg','family_history',this)">No</button>
+              <button type="button" class="seg-btn" data-val="1"
+                onclick="setSeg('famHistSeg','family_history',this)">Yes</button>
+            </div><input type="hidden" id="family_history" value="0" />
+          </div>
+          <div class="form-group"><label>Diabetes <span class="req">*</span></label>
+            <div class="seg-control" id="diabetesSeg">
+              <button type="button" class="seg-btn active" data-val="0"
+                onclick="setSeg('diabetesSeg','diabetes',this)">No</button>
+              <button type="button" class="seg-btn" data-val="1"
+                onclick="setSeg('diabetesSeg','diabetes',this)">Yes</button>
+            </div><input type="hidden" id="diabetes" value="0" />
+          </div>
+          <div class="form-group">
+            <label><span class="medtip"
+                data-tip="Total cholesterol. Borderline: 200-239 mg/dL, High: ≥240 mg/dL">Cholesterol Level</span> <span
+                class="req">*</span></label>
+            <div class="seg-control" id="cholSeg">
+              <button type="button" class="seg-btn active" data-val="0"
+                onclick="setSeg('cholSeg','cholesterol_level',this)">Normal</button>
+              <button type="button" class="seg-btn" data-val="1"
+                onclick="setSeg('cholSeg','cholesterol_level',this)">Borderline</button>
+              <button type="button" class="seg-btn" data-val="2"
+                onclick="setSeg('cholSeg','cholesterol_level',this)">High</button>
+            </div><input type="hidden" id="cholesterol_level" value="0" />
+          </div>
+          <div class="form-group">
+            <label><span class="medtip"
+                data-tip="Resting heart rate. Normal: 60-100 bpm. Elevated: 80-99. High: >100 (tachycardia)">Heart
+                Rate</span> <span class="req">*</span></label>
+            <div class="seg-control" id="hrSeg">
+              <button type="button" class="seg-btn" data-val="0"
+                onclick="setSeg('hrSeg','heart_rate_category',this)">&lt;60</button>
+              <button type="button" class="seg-btn active" data-val="1"
+                onclick="setSeg('hrSeg','heart_rate_category',this)">Normal</button>
+              <button type="button" class="seg-btn" data-val="2"
+                onclick="setSeg('hrSeg','heart_rate_category',this)">Elevated</button>
+              <button type="button" class="seg-btn" data-val="3"
+                onclick="setSeg('hrSeg','heart_rate_category',this)">&gt;100</button>
+            </div><input type="hidden" id="heart_rate_category" value="1" />
+          </div>
+          <div class="form-group"><label>Currently Taking Medication <span class="req">*</span></label>
+            <div class="seg-control" id="medSeg">
+              <button type="button" class="seg-btn active" data-val="0"
+                onclick="setSeg('medSeg','take_medication',this)">No</button>
+              <button type="button" class="seg-btn" data-val="1"
+                onclick="setSeg('medSeg','take_medication',this)">Yes</button>
+            </div><input type="hidden" id="take_medication" value="0" />
+          </div>
+          <div class="form-group"><label>Current Patient Status</label>
+            <div class="seg-control" id="patStatusSeg">
+              <button type="button" class="seg-btn active" data-val="0"
+                onclick="setSeg('patStatusSeg','patient_status',this)">New</button>
+              <button type="button" class="seg-btn" data-val="1"
+                onclick="setSeg('patStatusSeg','patient_status',this)">Existing</button>
+            </div><input type="hidden" id="patient_status" value="0" />
+          </div>
+          <div class="form-group"><label>Time Since Diagnosis</label>
+            <select id="time_since_diagnosis" class="select">
+              <option value="0">Not Diagnosed</option>
+              <option value="1">Less than 1 year</option>
+              <option value="2">1 &ndash; 3 years</option>
+              <option value="3">3 &ndash; 5 years</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label><span class="medtip"
+                data-tip="DASH diet: low sodium, high potassium/calcium. Reduces BP by 8-14 mmHg">Controlled / DASH
+                Diet</span></label>
+            <div class="seg-control" id="dietSeg">
+              <button type="button" class="seg-btn active" data-val="0"
+                onclick="setSeg('dietSeg','controlled_diet',this)">No</button>
+              <button type="button" class="seg-btn" data-val="1"
+                onclick="setSeg('dietSeg','controlled_diet',this)">Yes</button>
+            </div><input type="hidden" id="controlled_diet" value="0" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Clinical Symptoms -->
+      <div class="form-section">
+        <div class="section-header">
+          <div class="section-icon">&#x1FA7A;</div>
+          <div>
+            <h2 class="section-title">Clinical Symptoms</h2>
+            <p class="section-desc">Current symptom presentation and severity</p>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group"><label>Symptom Severity <span class="req">*</span></label>
+            <div class="seg-control" id="sevSeg">
+              <button type="button" class="seg-btn active" data-val="0"
+                onclick="setSeg('sevSeg','symptom_severity',this)">Mild</button>
+              <button type="button" class="seg-btn" data-val="1"
+                onclick="setSeg('sevSeg','symptom_severity',this)">Moderate</button>
+              <button type="button" class="seg-btn" data-val="2"
+                onclick="setSeg('sevSeg','symptom_severity',this)">Severe</button>
+            </div><input type="hidden" id="symptom_severity" value="0" />
+          </div>
+          <div class="form-group"><label>Shortness of Breath</label>
+            <div class="seg-control" id="sobSeg">
+              <button type="button" class="seg-btn active" data-val="0"
+                onclick="setSeg('sobSeg','shortness_of_breath',this)">No</button>
+              <button type="button" class="seg-btn" data-val="1"
+                onclick="setSeg('sobSeg','shortness_of_breath',this)">Yes</button>
+            </div><input type="hidden" id="shortness_of_breath" value="0" />
+          </div>
+          <div class="form-group">
+            <label><span class="medtip"
+                data-tip="Blurred vision can signal hypertensive retinopathy (retinal vessel damage)">Visual
+                Changes</span></label>
+            <div class="seg-control" id="visSeg">
+              <button type="button" class="seg-btn active" data-val="0"
+                onclick="setSeg('visSeg','visual_changes',this)">No</button>
+              <button type="button" class="seg-btn" data-val="1"
+                onclick="setSeg('visSeg','visual_changes',this)">Yes</button>
+            </div><input type="hidden" id="visual_changes" value="0" />
+          </div>
+          <div class="form-group">
+            <label><span class="medtip"
+                data-tip="Epistaxis (nosebleeds). Associated with uncontrolled hypertension">Nosebleeds
+                (Epistaxis)</span></label>
+            <div class="seg-control" id="noseSeg">
+              <button type="button" class="seg-btn active" data-val="0"
+                onclick="setSeg('noseSeg','nosebleeds',this)">No</button>
+              <button type="button" class="seg-btn" data-val="1"
+                onclick="setSeg('noseSeg','nosebleeds',this)">Yes</button>
+            </div><input type="hidden" id="nosebleeds" value="0" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 4: Blood Pressure -->
+      <div class="form-section">
+        <div class="section-header">
+          <div class="section-icon">&#x1F4CA;</div>
+          <div>
+            <h2 class="section-title">Blood Pressure Readings</h2>
+            <p class="section-desc">Most recently measured BP &mdash; from today&#39;s reading OR your last check-up /
+              doctor visit</p>
+          </div>
+        </div>
+        <div class="bp-zone-bar">
+          <div class="bp-zone" style="--c:#22c55e;flex:1.5">Normal<br />&lt;120/80</div>
+          <div class="bp-zone" style="--c:#84cc16;flex:1">Elevated<br />120&ndash;129</div>
+          <div class="bp-zone" style="--c:#f59e0b;flex:1.2">Stage-1<br />130&ndash;139</div>
+          <div class="bp-zone" style="--c:#ef4444;flex:1.2">Stage-2<br />140&ndash;159</div>
+          <div class="bp-zone" style="--c:#7f1d1d;flex:1">Crisis<br />&ge;160</div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group"><label>Systolic BP Range <span class="req">*</span></label>
+            <select id="systolic_bp" class="select bp-select" onchange="updateBPColor();updateProgress()">
+              <option value="">Select systolic&hellip;</option>
+              <option value="0">Less than 120 mmHg (Normal)</option>
+              <option value="1">120 &ndash; 129 mmHg (Elevated)</option>
+              <option value="2">130 &ndash; 139 mmHg (Stage-1)</option>
+              <option value="3">140 &ndash; 159 mmHg (Stage-2)</option>
+              <option value="4">160+ mmHg (Crisis Level)</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Diastolic BP Range <span class="req">*</span></label>
+            <select id="diastolic_bp" class="select bp-select" onchange="updateBPColor();updateProgress()">
+              <option value="">Select diastolic&hellip;</option>
+              <option value="0">Less than 80 mmHg (Normal)</option>
+              <option value="1">80 &ndash; 89 mmHg (Stage-1)</option>
+              <option value="2">90 &ndash; 99 mmHg (Stage-2)</option>
+              <option value="3">100+ mmHg (Crisis Level)</option>
+            </select>
+          </div>
+        </div>
+        <div id="bpIndicator" class="bp-indicator" style="display:none"></div>
+      </div>
+
+      <!-- Submit -->
+      <div class="submit-section">
+        <button type="button" id="predictBtn" class="predict-btn" onclick="runPrediction()">
+          <span id="btnText">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 8v4l3 3" />
+            </svg>
+            Analyze &amp; Predict
+            <span class="key-hint"><kbd>Ctrl</kbd>+<kbd>&#x21B5;</kbd></span>
+          </span>
+          <span id="btnLoader" style="display:none;" class="btn-loader"><span
+              class="spinner"></span>Analyzing&hellip;</span>
+        </button>
+        <button type="button" class="reset-btn" onclick="resetForm()" title="Clear all fields">&#x21BA; Reset</button>
+      </div>
+      <p class="sub-hint">Results appear below &middot; All data stays local &middot; For clinical support only</p>
+    </form>
+
+    <!-- ── RESULT PANEL ── -->
+    <div id="resultPanel" class="result-panel" style="display:none">
+      <div class="result-inner">
+        <div class="result-header" id="resultHeader">
+          <p class="result-patient-name" id="resultPatientName"></p>
+          <div class="result-badge" id="resultBadge"></div>
+          <h2 class="result-stage" id="resultStage"></h2>
+          <p class="result-desc" id="resultDesc"></p>
+          <div class="urgency-box" id="urgencyBox"></div>
+        </div>
+        <div class="result-actions">
+          <button class="action-btn" onclick="printResult()">&#x1F5A8;&#xFE0F; Print / Export PDF</button>
+          <button class="action-btn" onclick="copyResult()" id="copyBtn">&#x1F4CB; Copy Summary</button>
+        </div>
+        <div class="gauge-card" id="gaugeCard">
+          <h3 class="chart-title">&#x1FA7A; Hypertension Risk Meter</h3>
+          <div class="gauge-wrap">
+            <canvas id="gaugeCanvas" width="460" height="250"></canvas>
+            <div class="gauge-center-label">
+              <div class="gauge-stage-name" id="gaugeStageName"></div>
+              <div class="gauge-conf" id="gaugeConf"></div>
+            </div>
+          </div>
+          <div class="gauge-zone-row">
+            <span class="gz" style="--gc:#22c55e">Normal</span>
+            <span class="gz" style="--gc:#f59e0b">Stage-1</span>
+            <span class="gz" style="--gc:#ef4444">Stage-2</span>
+            <span class="gz" style="--gc:#7f1d1d">Crisis</span>
+          </div>
+        </div>
+        <div class="charts-row">
+          <div class="chart-card">
+            <h3 class="chart-title">Stage Probability</h3>
+            <div class="chart-wrap"><canvas id="donutChart"></canvas></div>
+            <div class="donut-legend" id="donutLegend"></div>
+          </div>
+          <div class="chart-card chart-card-wide">
+            <h3 class="chart-title">Patient Risk Profile</h3>
+            <div class="chart-wrap"><canvas id="radarChart"></canvas></div>
+          </div>
+        </div>
+        <div class="confidence-block">
+          <div class="confidence-label">
+            <span>Prediction Confidence</span>
+            <span class="confidence-pct" id="confPct">0%</span>
+          </div>
+          <div class="conf-bar-bg">
+            <div class="conf-bar-fill" id="confBarFill"></div>
+          </div>
+        </div>
+        <div class="reco-block">
+          <h3 class="reco-title">&#x1F4CB; Clinical Recommendations</h3>
+          <ul class="reco-list" id="recoList"></ul>
+        </div>
+        <div class="disclaimer">
+          &#x26A0;&#xFE0F; This tool is for <strong>educational and clinical support purposes only</strong>. Always
+          consult a qualified healthcare provider.
+        </div>
+      </div>
+    </div>
+
+    <!-- ── MODEL COMPARISON ── -->
+    <div class="section-divider"><span>&#x1F4C8; Model Performance Analytics</span></div>
+    <div class="model-section">
+      <div class="chart-card full-width">
+        <h3 class="chart-title">Algorithm Accuracy Comparison <span class="badge-new">9 Models</span></h3>
+        <p class="chart-sub">Cross-validation vs test accuracy. Highlighted bar = auto-selected best model.</p>
+        <div class="bar-chart-wrap"><canvas id="modelBarChart" height="90"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ── PREDICTION HISTORY ── -->
+    <div class="section-divider"><span>&#x1F550; Prediction History</span></div>
+    <div class="history-section">
+      <div class="chart-card full-width">
+        <h3 class="chart-title">Recent Predictions <span id="histCount" class="badge-new">0</span>
+          &nbsp;<button class="action-btn" onclick="clearHistory()"
+            style="font-size:0.7rem;padding:3px 10px;margin-left:8px">Clear</button>
+        </h3>
+        <div class="history-grid" id="historyGrid">
+          <div class="hist-empty">No predictions yet &mdash; run an analysis above to see history here.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── DAILY FOOD TRACKER TOGGLE BUTTON ── -->
+    <div class="ft-toggle-wrap" id="ftToggleWrap">
+      <button class="ft-open-btn" id="ftOpenBtn" onclick="toggleFoodTracker()">
+        <span class="ft-open-icon">🥗</span>
+        <span class="ft-open-text">
+          <strong>Daily Food Tracker</strong>
+          <small>Log meals &amp; get Gemini AI ratings</small>
+        </span>
+        <span class="badge-new" id="mealCountBadge" style="margin-left:auto">0 today</span>
+        <span class="ft-chevron open" id="ftChevron">▼</span>
+      </button>
+    </div>
+
+    <!-- ── DAILY FOOD TRACKER PANEL ── -->
+    <div class="ft-panel open" id="ftPanel">
+      <div class="food-tracker-section">
+
+        <!-- Meal Logger -->
+        <div class="chart-card full-width">
+          <h3 class="chart-title">🍽️ Log Today's Meal</h3>
+          <p class="chart-sub">Track meals daily for a personalised hypertension-friendly diet overview.</p>
+          <div class="meal-form-grid">
+            <div class="meal-form-group">
+              <label class="meal-label">Meal Name <span class="req">*</span></label>
+              <input type="text" id="mealName" class="meal-input" placeholder="e.g. Oats with banana" maxlength="80" />
+            </div>
+            <div class="meal-form-group">
+              <label class="meal-label">Category</label>
+              <select id="mealCategory" class="select">
+                <option value="Breakfast">🌅 Breakfast</option>
+                <option value="Lunch">☀️ Lunch</option>
+                <option value="Dinner">🌙 Dinner</option>
+                <option value="Snack">🍎 Snack</option>
+                <option value="Drink">🥤 Drink</option>
+              </select>
+            </div>
+            <div class="meal-form-group">
+              <label class="meal-label">Sodium Level</label>
+              <div class="seg-control" id="sodiumSeg">
+                <button type="button" class="seg-btn active seg-green" data-val="Low"
+                  onclick="setSeg('sodiumSeg','mealSodium',this)">🟢 Low</button>
+                <button type="button" class="seg-btn seg-amber" data-val="Medium"
+                  onclick="setSeg('sodiumSeg','mealSodium',this)">🟡 Medium</button>
+                <button type="button" class="seg-btn seg-red" data-val="High"
+                  onclick="setSeg('sodiumSeg','mealSodium',this)">🔴 High</button>
+              </div>
+              <input type="hidden" id="mealSodium" value="Low" />
+            </div>
+            <div class="meal-form-group">
+              <label class="meal-label">Portion</label>
+              <div class="seg-control" id="portionSeg">
+                <button type="button" class="seg-btn active" data-val="Small"
+                  onclick="setSeg('portionSeg','mealPortion',this)">Small</button>
+                <button type="button" class="seg-btn" data-val="Regular"
+                  onclick="setSeg('portionSeg','mealPortion',this)">Regular</button>
+                <button type="button" class="seg-btn" data-val="Large"
+                  onclick="setSeg('portionSeg','mealPortion',this)">Large</button>
+              </div>
+              <input type="hidden" id="mealPortion" value="Small" />
+            </div>
+          </div>
+          <div class="meal-btn-row">
+            <button class="predict-btn meal-log-btn" onclick="logMeal()" id="mealLogBtn">
+              <span id="mealBtnText">➕ Log Meal</span>
+              <span id="mealBtnLoader" style="display:none" class="btn-loader"><span
+                  class="spinner"></span>Saving…</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Today's Log -->
+        <div class="chart-card full-width">
+          <h3 class="chart-title">📋 Today's Food Log
+            <button class="action-btn" onclick="loadTodayLog()"
+              style="font-size:0.7rem;padding:3px 10px;margin-left:8px">↻ Refresh</button>
+          </h3>
+          <div id="foodLogTable" class="food-log-wrap">
+            <div class="hist-empty">No meals logged today — use the form above to start tracking.</div>
+          </div>
+        </div>
+
+        <!-- Personalized Suggestions (shown after prediction) -->
+        <div class="chart-card full-width" id="foodSuggestPanel" style="display:none">
+          <h3 class="chart-title">🎯 Personalized Food Suggestions
+            <span id="sugg-stage-badge" class="badge-new"></span>
+          </h3>
+          <p class="chart-sub" id="suggTip"></p>
+          <div class="sugg-columns">
+            <div class="sugg-col sugg-eat">
+              <div class="sugg-col-head">✅ Recommended Foods</div>
+              <ul id="suggEatList" class="sugg-list"></ul>
+            </div>
+            <div class="sugg-col sugg-avoid">
+              <div class="sugg-col-head">🚫 Foods to Avoid</div>
+              <ul id="suggAvoidList" class="sugg-list"></ul>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="footer">
+    <p>Pulse Guard AI v2 &middot; Voting Ensemble &middot; 18 Clinical Features &middot; For Research &amp; Clinical
+      Support Only</p>
+  </footer>
+  <div id="toast" class="toast"></div>
+
+  <!-- Language dropdown portal (outside header to avoid stacking context issues) -->
+  <div class="lang-dropdown" id="langDropdown">
+    <div class="lang-section-label">🇮🇳 Indian Languages</div>
+    <button onclick="setLang('en')">🇬🇧 English</button>
+    <button onclick="setLang('ta')">🇮🇳 Tamil — தமிழ்</button>
+    <button onclick="setLang('hi')">🇮🇳 Hindi — हिन्दी</button>
+    <button onclick="setLang('te')">🇮🇳 Telugu — తెలుగు</button>
+    <button onclick="setLang('ml')">🇮🇳 Malayalam — മലയാളം</button>
+    <button onclick="setLang('kn')">🇮🇳 Kannada — ಕನ್ನಡ</button>
+    <button onclick="setLang('bn')">🇮🇳 Bengali — বাংলা</button>
+    <button onclick="setLang('mr')">🇮🇳 Marathi — मराठी</button>
+    <button onclick="setLang('gu')">🇮🇳 Gujarati — ગુજરાતી</button>
+    <button onclick="setLang('pa')">🇮🇳 Punjabi — ਪੰਜਾਬੀ</button>
+    <button onclick="setLang('ur')">🇵🇰 Urdu — اردو</button>
+    <div class="lang-section-label">🌍 International</div>
+    <button onclick="setLang('fr')">🇫🇷 French — Français</button>
+    <button onclick="setLang('es')">🇪🇸 Spanish — Español</button>
+    <button onclick="setLang('ar')">🇸🇦 Arabic — العربية</button>
+    <button onclick="setLang('zh-CN')">🇨🇳 Chinese — 中文</button>
+    <button onclick="setLang('de')">🇩🇪 German — Deutsch</button>
+    <button onclick="setLang('ja')">🇯🇵 Japanese — 日本語</button>
+    <button onclick="setLang('pt')">🇧🇷 Portuguese — Português</button>
+    <button onclick="setLang('ru')">🇷🇺 Russian — Русский</button>
+    <button onclick="setLang('ko')">🇰🇷 Korean — 한국어</button>
+    <button onclick="setLang('id')">🇮🇩 Indonesian — Bahasa</button>
+  </div>
+
+  <script src="/static/script.js"></script>
+
+  <!-- ─── Floating Bio-Report Button ─── -->
+  <button id="fabReportBtn" onclick="openReportModal()" title="Upload Medical Report"
+    style="position:fixed; bottom:170px; right:28px; z-index:999999; display:flex; flex-direction:column; align-items:center; gap:4px; width:64px; padding:10px 6px; border-radius:18px; border:none; background:linear-gradient(135deg,#3b82f6,#6366f1); color:#fff; font-size:1.4rem; cursor:pointer; box-shadow:0 8px 24px rgba(59,130,246,0.5);">
+    📄
+    <span style="font-size:0.6rem; font-weight:600; letter-spacing:0.03em; text-align:center; line-height:1.2;">Bio
+      Report</span>
+  </button>
+
+  <!-- ─── Floating Voice Predict Button ─── -->
+  <button class="fab-voice" id="fabVoiceBtn" onclick="openVoiceModal()" title="Voice Stress Screening">
+    🎙️
+    <span class="fab-label">Voice Scan</span>
+  </button>
+
+  <!-- ─── Floating Facial Predict Button ─── -->
+  <button class="fab-face" id="fabFaceBtn" onclick="openFaceModal()" title="Facial Hypertension Screening">
+    📷
+    <span class="fab-label">Face Scan</span>
+  </button>
+
+  <!-- ─── Bio-Report Predict Modal ─── -->
+  <div class="face-modal" id="reportModal">
+    <div class="face-modal-inner">
+      <div class="face-modal-header">
+        <h2 class="face-modal-title">Bio-Report Analysis</h2>
+        <button class="face-modal-close" onclick="closeModal('reportModal')">&times;</button>
+      </div>
+
+      <div id="reportUploadCard">
+        <div class="face-placeholder">
+          <div class="face-shimmer"></div>
+          <span style="font-size: 3rem; margin-bottom: 20px;">📄</span>
+          <p>Upload your lab report or medical summary</p>
+          <p style="font-size: 0.8rem; opacity: 0.7;">AI will extract 18 clinical features automatically</p>
+        </div>
+        <input type="file" id="reportInput" accept="image/*" style="display: none;"
+          onchange="handleReportUpload(event)">
+        <button class="face-btn primary" onclick="document.getElementById('reportInput').click()"
+          style="width:100%; margin-top:20px;">
+          Choose Report Image
+        </button>
+      </div>
+
+      <div id="reportLoader" style="display:none; text-align:center; padding:30px;">
+        <div class="face-shimmer" style="width: 100px; height: 100px; border-radius: 50%; margin: 0 auto 20px;"></div>
+        <p>Gemini is parsing report data...</p>
+      </div>
+
+      <div id="reportResult" style="display:none; max-height: 400px; overflow-y: auto; padding-right: 10px;">
+        <div id="reportImagePreview" style="margin-bottom: 20px; text-align: center;">
+          <img id="reportPreviewImg" src=""
+            style="max-width: 100%; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+        </div>
+        <div id="reportDataFields"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Voice Predict Modal ─── -->
+  <div class="face-modal" id="voiceModal">
+    <div class="face-modal-inner">
+      <div class="face-modal-header">
+        <h2>🎙️ Voice Stress Screening</h2>
+        <p class="face-modal-sub">Analyze vocal micro-tremors and acoustic features for stress assessment.</p>
+        <button class="face-modal-close" onclick="closeVoiceModal()">&times;</button>
+      </div>
+
+      <div class="face-modal-body">
+        <div class="voice-record-card" id="voiceRecordCard">
+          <div class="voice-mic-icon" id="voiceMicIcon">🎙️</div>
+          <div class="voice-status" id="voiceStatus">Ready to record</div>
+          <p class="voice-hint">Record ~5 seconds of speech (e.g., "I am feeling relaxed today") for analysis.</p>
+
+          <div class="voice-controls">
+            <button class="face-btn primary" id="startRecordingBtn" onclick="startVoiceRecording()">
+              🔴 Start Recording
+            </button>
+            <button class="face-btn secondary" id="stopRecordingBtn" onclick="stopVoiceRecording()"
+              style="display:none">
+              ⏹️ Stop & Analyse
+            </button>
+          </div>
+        </div>
+
+        <div id="voiceResult" style="display:none">
+          <!-- Voice results will be injected here -->
+        </div>
+
+        <div id="voiceLoader" class="face-loader" style="display:none">
+          <div class="spinner"></div>
+          <span>Processing acoustic features...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Facial Predict Modal ─── -->
+  <div class="face-modal" id="faceModal">
+    <div class="face-modal-inner">
+      <div class="face-modal-header">
+        <h2>📷 Facial Hypertension Screening</h2>
+        <p class="face-modal-sub">Gemini Vision AI analyses visible facial signs of hypertension</p>
+        <button class="face-close-btn" onclick="closeFaceModal()">✕</button>
+      </div>
+
+      <!-- Camera / Upload area -->
+      <div class="face-camera-wrap" id="faceCameraWrap">
+        <video id="faceVideo" autoplay playsinline></video>
+        <canvas id="faceCanvas" style="display:none"></canvas>
+        <div class="face-overlay-text" id="faceOverlayText">📷 Position your face in the frame</div>
+      </div>
+
+      <!-- Controls -->
+      <div class="face-controls" id="faceControls">
+        <button class="face-btn face-btn-primary" id="faceCaptureBtn" onclick="captureFace()">
+          📸 Capture Photo
+        </button>
+        <label class="face-btn face-btn-secondary" for="faceUploadInput">
+          🖼️ Upload Image
+          <input type="file" id="faceUploadInput" accept="image/*" onchange="loadUploadedFace(event)"
+            style="display:none" />
+        </label>
+        <button class="face-btn face-btn-secondary" id="faceRetakeBtn" onclick="retakeFace()" style="display:none">
+          🔄 Retake
+        </button>
+        <button class="face-btn face-btn-analyse" id="faceAnalyseBtn" onclick="analyseFace()" style="display:none">
+          <span id="faceAnalyseBtnText">🔍 Analyse with Gemini</span>
+          <span id="faceAnalyseLoader" style="display:none"><span class="spinner"></span> Analysing…</span>
+        </button>
+      </div>
+
+
+      <!-- Result card -->
+      <div class="face-result" id="faceResult" style="display:none">
+        <div class="face-result-header">
+          <div class="face-risk-badge" id="faceRiskBadge"></div>
+          <div class="face-confidence" id="faceConfidence"></div>
+        </div>
+        <div class="face-signs-wrap">
+          <div class="face-signs-title">🔬 Observed Signs</div>
+          <ul class="face-signs-list" id="faceSignsList"></ul>
+        </div>
+
+        <div class="face-extra-results">
+          <div class="face-result-item">
+            <div class="face-item-label">😊 Emotion</div>
+            <div class="face-item-val" id="faceEmotion">-</div>
+            <div class="face-item-detail" id="faceEmotionDetail"></div>
+          </div>
+          <div class="face-result-item">
+            <div class="face-item-label">🧠 Stress Level</div>
+            <div class="face-item-val" id="faceStress">-</div>
+            <div class="face-item-detail" id="faceStressCues"></div>
+          </div>
+          <div class="face-result-item">
+            <div class="face-item-label">💓 BP Estimate</div>
+            <div class="face-item-val" id="faceBPEstimate">-</div>
+            <div class="face-item-detail" id="faceBPCategory"></div>
+          </div>
+        </div>
+
+        <div class="face-advice" id="faceAdvice"></div>
+        <div class="face-disclaimer" id="faceDisclaimer"></div>
+        <div class="face-actions" id="faceActions"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==== AI Chatbot Widget ==== -->
+  <!-- Toggle button: bottom-left corner -->
+  <button id="chatToggleBtn" onclick="toggleChat()" title="Pulse Guard AI chat"
+    style="position:fixed;bottom:28px;left:28px;z-index:99999;width:60px;height:60px;border-radius:50%;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:1.6rem;cursor:pointer;box-shadow:0 8px 24px rgba(16,185,129,0.5);display:flex;align-items:center;justify-content:center;transition:transform 0.2s,box-shadow 0.2s;">
+    &#x1F4AC;
+  </button>
+
+  <!-- Chat panel -->
+  <div id="chatWidget"
+    style="display:none;position:fixed;bottom:102px;left:28px;width:330px;z-index:99998;border-radius:20px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.35);border:1px solid var(--border);flex-direction:column;">
+
+    <!-- Header -->
+    <div
+      style="padding:12px 14px;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;gap:10px;">
+      <div
+        style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">
+        &#x1F916;</div>
+      <div>
+        <div style="color:#fff;font-weight:700;font-size:0.88rem;">Pulse Guard AI</div>
+        <div style="color:rgba(255,255,255,0.8);font-size:0.68rem;">Hypertension Expert</div>
+      </div>
+      <button onclick="toggleChat()"
+        style="margin-left:auto;background:rgba(255,255,255,0.2);border:none;color:#fff;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:0.9rem;display:flex;align-items:center;justify-content:center;">&times;</button>
+    </div>
+
+    <!-- Messages -->
+    <div id="chatMessages"
+      style="overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;max-height:320px;min-height:160px;background:var(--bg);">
+      <div style="display:flex;gap:8px;align-items:flex-start;">
+        <div
+          style="width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0;">
+          &#x1F916;</div>
+        <div
+          style="background:var(--card);border:1px solid var(--border);border-radius:0 12px 12px 12px;padding:9px 11px;font-size:0.8rem;line-height:1.5;color:var(--text);max-width:82%;">
+          Hi! Ask me anything about hypertension, blood pressure, diet, or your results! &#x1F499;</div>
+      </div>
+    </div>
+
+    <!-- Quick chips -->
+    <div id="chatChips"
+      style="padding:6px 10px;display:flex;gap:5px;flex-wrap:wrap;background:var(--bg);border-top:1px solid var(--border);">
+      <button onclick="sendQuick('What is Stage-1 hypertension?')"
+        style="font-size:0.65rem;padding:3px 8px;border-radius:20px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;">Stage-1
+        BP?</button>
+      <button onclick="sendQuick('How to lower blood pressure naturally?')"
+        style="font-size:0.65rem;padding:3px 8px;border-radius:20px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;">Lower
+        BP</button>
+      <button onclick="sendQuick('What foods should I avoid with hypertension?')"
+        style="font-size:0.65rem;padding:3px 8px;border-radius:20px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;">Diet
+        tips</button>
+    </div>
+
+    <!-- Input -->
+    <div
+      style="display:flex;gap:8px;padding:9px 10px;background:var(--card);border-top:1px solid var(--border);align-items:flex-end;">
+      <textarea id="chatInput" placeholder="Ask about hypertension..." rows="1"
+        style="flex:1;resize:none;border:1px solid var(--border);border-radius:12px;padding:7px 10px;font-size:0.8rem;background:var(--bg);color:var(--text);outline:none;font-family:inherit;max-height:75px;min-height:34px;line-height:1.4;"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMessage();}"></textarea>
+      <button onclick="sendChatMessage()" id="chatSendBtn"
+        style="width:34px;height:34px;border-radius:50%;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.95rem;flex-shrink:0;">&#x27A4;</button>
+    </div>
+  </div>
+
+  <style>
+    @keyframes chatPulse {
+
+      0%,
+      100% {
+        opacity: .3;
+        transform: scale(.8)
+      }
+
+      50% {
+        opacity: 1;
+        transform: scale(1)
+      }
+    }
+
+    #chatToggleBtn:hover {
+      transform: scale(1.1) !important;
+      box-shadow: 0 12px 32px rgba(16, 185, 129, 0.65) !important;
+    }
+  </style>
+
+  <script>
+    var _chatHistory = []; var _chatOpen = false;
+
+    function toggleChat() {
+      _chatOpen = !_chatOpen;
+      var w = document.getElementById('chatWidget');
+      var btn = document.getElementById('chatToggleBtn');
+      w.style.display = _chatOpen ? 'flex' : 'none';
+      w.style.flexDirection = 'column';
+      btn.innerHTML = _chatOpen ? '&#x2715;' : '&#x1F4AC;';
+      btn.style.transform = _chatOpen ? 'scale(0.9)' : 'scale(1)';
+      if (_chatOpen) setTimeout(function () { document.getElementById('chatInput').focus(); }, 100);
+    }
+
+    function sendQuick(txt) { document.getElementById('chatInput').value = txt; sendChatMessage(); }
+
+    function _appendMsg(role, text) {
+      var box = document.getElementById('chatMessages');
+      var isBot = role === 'bot';
+      var d = document.createElement('div');
+      d.style.cssText = 'display:flex;gap:8px;align-items:flex-start;' + (isBot ? '' : 'flex-direction:row-reverse;');
+      d.innerHTML = '<div style="width:26px;height:26px;border-radius:50%;background:' + (isBot ? 'linear-gradient(135deg,#10b981,#059669)' : 'linear-gradient(135deg,#6366f1,#3b82f6)') + ';display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0;">' + (isBot ? '&#x1F916;' : '&#x1F464;') + '</div>'
+        + '<div style="background:' + (isBot ? 'var(--card)' : 'linear-gradient(135deg,#6366f1,#3b82f6)') + ';border:' + (isBot ? '1px solid var(--border)' : 'none') + ';border-radius:' + (isBot ? '0 12px 12px 12px' : '12px 0 12px 12px') + ';padding:9px 11px;font-size:0.8rem;line-height:1.5;color:' + (isBot ? 'var(--text)' : '#fff') + ';max-width:82%;white-space:pre-wrap;">' + text + '</div>';
+      box.appendChild(d);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function _showTyping() {
+      var box = document.getElementById('chatMessages');
+      var d = document.createElement('div');
+      d.id = 'chatTypingIndicator';
+      d.style.cssText = 'display:flex;gap:8px;align-items:flex-start;';
+      d.innerHTML = '<div style="width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0;">&#x1F916;</div>'
+        + '<div style="background:var(--card);border:1px solid var(--border);border-radius:0 12px 12px 12px;padding:10px 14px;display:flex;gap:5px;align-items:center;">'
+        + '<span style="width:6px;height:6px;border-radius:50%;background:#10b981;display:inline-block;animation:chatPulse 1s infinite 0s;"></span>'
+        + '<span style="width:6px;height:6px;border-radius:50%;background:#10b981;display:inline-block;animation:chatPulse 1s infinite .2s;"></span>'
+        + '<span style="width:6px;height:6px;border-radius:50%;background:#10b981;display:inline-block;animation:chatPulse 1s infinite .4s;"></span></div>';
+      box.appendChild(d);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    async function sendChatMessage() {
+      var input = document.getElementById('chatInput');
+      var msg = input.value.trim();
+      if (!msg) return;
+      input.value = '';
+      input.style.height = 'auto';
+      document.getElementById('chatChips').style.display = 'none';
+      document.getElementById('chatSendBtn').disabled = true;
+      _appendMsg('user', msg);
+      _chatHistory.push({ role: 'user', content: msg });
+      _showTyping();
+      try {
+        var res = await fetch('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: msg, history: _chatHistory.slice(-10) }) });
+        var data = await res.json();
+        var t = document.getElementById('chatTypingIndicator'); if (t) t.remove();
+        _appendMsg('bot', data.ok ? data.reply : '&#x26A0;&#xFE0F; Error. Please try again.');
+        if (data.ok) _chatHistory.push({ role: 'model', content: data.reply });
+      } catch (e) {
+        var t = document.getElementById('chatTypingIndicator'); if (t) t.remove();
+        _appendMsg('bot', '&#x26A0;&#xFE0F; Cannot reach server.');
+      }
+      document.getElementById('chatSendBtn').disabled = false;
+      document.getElementById('chatInput').focus();
+    }
+
+    // Auto-resize textarea
+    document.addEventListener('DOMContentLoaded', function () {
+      var ta = document.getElementById('chatInput');
+      if (ta) ta.addEventListener('input', function () { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 75) + 'px'; });
+    });
+  </script>
+
+</body>
+
+</html>

@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+env/
+
+# Data (regenerate on deploy)
+# data/           ← keep this if you want to commit the CSV
+
+# IDE
+.vscode/
+.idea/

@@ -1,0 +1,51 @@
+{
+  "models": {
+    "Logistic Regression": {
+      "test_acc": 87.8,
+      "cv_acc": 89.6,
+      "f1": 0.879
+    },
+    "Decision Tree": {
+      "test_acc": 89.8,
+      "cv_acc": 89.0,
+      "f1": 0.897
+    },
+    "Random Forest": {
+      "test_acc": 88.8,
+      "cv_acc": 89.6,
+      "f1": 0.886
+    },
+    "SVM": {
+      "test_acc": 88.2,
+      "cv_acc": 89.6,
+      "f1": 0.882
+    },
+    "KNN": {
+      "test_acc": 77.0,
+      "cv_acc": 78.2,
+      "f1": 0.761
+    },
+    "Ridge Classifier": {
+      "test_acc": 83.8,
+      "cv_acc": 85.8,
+      "f1": 0.835
+    },
+    "Gaussian Naive Bayes": {
+      "test_acc": 88.0,
+      "cv_acc": 89.6,
+      "f1": 0.882
+    },
+    "Gradient Boosting": {
+      "test_acc": 88.2,
+      "cv_acc": 89.1,
+      "f1": 0.882
+    },
+    "Voting Ensemble": {
+      "test_acc": 89.0,
+      "cv_acc": 89.2,
+      "f1": 0.889
+    }
+  },
+  "best": "Gaussian Naive Bayes",
+  "features": 18
+}
