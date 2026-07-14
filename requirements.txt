@@ -11,3 +11,4 @@ soundfile
 requests
 google-generativeai
 python-dotenv
+pip freeze > requirements.txt
