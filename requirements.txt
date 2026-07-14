@@ -11,3 +11,4 @@ soundfile
 requests
 google-generativeai
 python-dotenv
+opencv-python-headless==4.13.0.92
