@@ -1,37 +1,109 @@
-import os
-os.environ['TF_USE_LEGACY_KERAS'] = '1'
-os.environ['KERAS_BACKEND'] = 'tensorflow'
-
+import base64
+import importlib
 import json
+import logging
+import os
 import pickle
 import sqlite3
-from datetime import date
-import numpy as np
-import cv2
-import base64
 import tempfile
-import librosa
-import soundfile as sf
-import os
+from datetime import date
+from importlib import metadata as importlib_metadata
+
+os.environ.setdefault('TF_USE_LEGACY_KERAS', '1')
+os.environ.setdefault('KERAS_BACKEND', 'tensorflow')
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
+logger = logging.getLogger('bp_app')
+
 try:
-    import deepface.commons.package_utils as package_utils
-    package_utils.validate_for_keras3 = lambda: None
+    import cv2
+except Exception as exc:
+    cv2 = None
+    logger.warning('cv2 import failed: %s', exc)
+
+try:
+    import librosa
+except Exception as exc:
+    librosa = None
+    logger.warning('librosa import failed: %s', exc)
+
+try:
+    import numpy as np
+except Exception as exc:
+    np = None
+    logger.warning('numpy import failed: %s', exc)
+
+try:
+    import soundfile as sf
+except Exception as exc:
+    sf = None
+    logger.warning('soundfile import failed: %s', exc)
+
+from flask import Flask, jsonify, render_template, request, send_from_directory
+
+try:
+    from dotenv import load_dotenv
+except Exception:
+    load_dotenv = None
+
+if load_dotenv:
+    load_dotenv()
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()
+logging.getLogger().setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
+logger = logging.getLogger('bp_app')
+
+DEEPFACE_AVAILABLE = False
+DEEPFACE_IMPORT_ERROR = None
+DeepFace = None
+
+try:
     from deepface import DeepFace
     DEEPFACE_AVAILABLE = True
-    print(">>> DeepFace loaded with monkey-patch")
-except Exception as e:
-    print(f">>> DeepFace import failed: {e}")
-    DEEPFACE_AVAILABLE = False
+    logger.info('DeepFace import succeeded')
+except Exception as exc:
+    DEEPFACE_IMPORT_ERROR = str(exc)
+    logger.exception('DeepFace import failed: %s', exc)
 
 try:
     import google.generativeai as genai
     GEMINI_AVAILABLE = True
-    print(">>> Gemini AI loaded")
-except Exception as e:
-    print(f">>> Gemini import failed: {e}")
+    logger.info('Gemini AI loaded')
+except Exception as exc:
+    logger.exception('Gemini import failed: %s', exc)
     GEMINI_AVAILABLE = False
 
-from flask import Flask, request, jsonify, render_template, send_from_directory
+
+def verify_dependency(module_name, package_name=None):
+    package_name = package_name or module_name
+    try:
+        module = importlib.import_module(module_name)
+        version = getattr(module, '__version__', None)
+        if not version:
+            try:
+                version = importlib_metadata.version(package_name)
+            except Exception:
+                version = 'unknown'
+        logger.info('Verified dependency %s=%s', package_name, version)
+        return version
+    except Exception as exc:
+        logger.warning('Dependency unavailable: %s (%s)', package_name, exc)
+        return None
+
+
+verify_dependency('flask', 'flask')
+verify_dependency('numpy', 'numpy')
+verify_dependency('cv2', 'opencv-python-headless')
+verify_dependency('librosa', 'librosa')
+verify_dependency('soundfile', 'soundfile')
+verify_dependency('sklearn', 'scikit-learn')
+verify_dependency('pandas', 'pandas')
+verify_dependency('joblib', 'joblib')
+verify_dependency('requests', 'requests')
+verify_dependency('mediapipe', 'mediapipe')
+verify_dependency('google.generativeai', 'google-generativeai')
+verify_dependency('tensorflow', 'tensorflow')
 
 app = Flask(__name__)
 
@@ -70,12 +142,38 @@ init_db()
 
 
 # ─── Load model & features ────────────────────────────
-with open('logreg_model.pkl', 'rb') as f:
-    model = pickle.load(f)
-with open('model_features.pkl', 'rb') as f:
-    FEATURES = pickle.load(f)
-with open('static/model_comparison.json', 'r') as f:
-    MODEL_STATS = json.load(f)
+MODEL_PATH = os.path.join(BASE_DIR, 'logreg_model.pkl')
+FEATURES_PATH = os.path.join(BASE_DIR, 'model_features.pkl')
+MODEL_STATS_PATH = os.path.join(BASE_DIR, 'static', 'model_comparison.json')
+
+model = None
+FEATURES = None
+MODEL_STATS = {}
+
+for path in (MODEL_PATH, FEATURES_PATH):
+    if not os.path.exists(path):
+        logger.warning('Expected model file not found: %s', path)
+
+try:
+    with open(MODEL_PATH, 'rb') as f:
+        model = pickle.load(f)
+    logger.info('Loaded model from %s', MODEL_PATH)
+except Exception as exc:
+    logger.exception('Failed to load model from %s: %s', MODEL_PATH, exc)
+
+try:
+    with open(FEATURES_PATH, 'rb') as f:
+        FEATURES = pickle.load(f)
+    logger.info('Loaded feature list from %s', FEATURES_PATH)
+except Exception as exc:
+    logger.exception('Failed to load feature list from %s: %s', FEATURES_PATH, exc)
+
+try:
+    with open(MODEL_STATS_PATH, 'r', encoding='utf-8') as f:
+        MODEL_STATS = json.load(f)
+    logger.info('Loaded model comparison stats from %s', MODEL_STATS_PATH)
+except Exception as exc:
+    logger.exception('Failed to load model comparison stats from %s: %s', MODEL_STATS_PATH, exc)
 
 STAGE_INFO = {
     0: {
@@ -165,6 +263,30 @@ FEATURE_LABELS = {
     'Heart_Rate_Category': 'Heart Rate',
     'Exercise_Frequency': 'Exercise Freq.',
 }
+
+
+@app.route('/health')
+def health():
+    def package_version(name):
+        try:
+            return importlib_metadata.version(name)
+        except Exception:
+            return 'unknown'
+
+    model_files = [
+        str(MODEL_PATH),
+        str(FEATURES_PATH),
+        str(MODEL_STATS_PATH),
+    ]
+    return jsonify({
+        'python_version': os.sys.version.split()[0],
+        'deepface_installed': DEEPFACE_AVAILABLE,
+        'deepface_error': DEEPFACE_IMPORT_ERROR,
+        'tensorflow_version': package_version('tensorflow'),
+        'opencv_version': package_version('opencv-python-headless') or package_version('opencv-python'),
+        'mediapipe_version': package_version('mediapipe'),
+        'model_files_found': {path: os.path.exists(path) for path in model_files},
+    })
 
 
 @app.route('/')
@@ -543,48 +665,67 @@ Risk guide: Low=no signs, Moderate=1-2 minor signs, High=2-3 signs, Critical=mul
 Stress guide: Low=relaxed, Moderate=some tension, High=clear strain, Severe=extreme tension/distress"""
 
             
-    # --- 1. LOCAL ANALYSIS WITH DEEPFACE ---
     local_result = {
         "emotion": "Neutral",
         "stress_level": "Moderate",
         "stress_cues": ["Local analysis pending"],
-        "risk": "Low"
+        "risk": "Low",
+        "signs": [],
+        "emotion_detail": "DeepFace analysis pending",
+        "bp_estimate": {
+            "systolic": "120-130",
+            "diastolic": "80-90",
+            "category": "Normal"
+        },
+        "confidence": "Moderate",
+        "summary": "Visual analysis completed with a local fallback estimate.",
+        "advice": "Take a moment to relax and re-check if needed.",
+        "disclaimer": "This is a non-invasive visual estimate only, not a medical diagnosis. Consult a doctor for accurate BP measurement.",
+        "ok": True,
     }
 
     if DEEPFACE_AVAILABLE:
         try:
-            # Decode base64 image
             img_data = base64.b64decode(img_b64)
             with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp:
                 tmp.write(img_data)
                 tmp_path = tmp.name
 
             try:
-                # Analyze with DeepFace
                 objs = DeepFace.analyze(img_path=tmp_path, actions=['emotion'], enforce_detection=False)
                 if objs:
                     res = objs[0]
-                    emotion = res['dominant_emotion'].capitalize()
-                    
-                    # User's mapping: High (Angry, Fear, Sad), Moderate (Neutral), Low (others)
+                    dominant_emotion = str(res.get('dominant_emotion', 'neutral')).lower()
+                    emotion = dominant_emotion.capitalize()
                     stress_map = {
-                        'angry': 'High', 'fear': 'High', 'sad': 'High',
-                        'neutral': 'Moderate', 'happy': 'Low', 'surprise': 'Low', 'disgust': 'Moderate'
+                        'angry': 'High',
+                        'fear': 'High',
+                        'sad': 'High',
+                        'neutral': 'Moderate',
+                        'happy': 'Low',
+                        'surprise': 'Low',
+                        'disgust': 'Moderate',
                     }
-                    stress_level = stress_map.get(res['dominant_emotion'], 'Moderate')
-                    
+                    stress_level = stress_map.get(dominant_emotion, 'Moderate')
                     local_result.update({
                         "emotion": emotion,
                         "stress_level": stress_level,
-                        "stress_cues": [f"DeepFace detected {emotion}"]
+                        "stress_cues": [f"DeepFace detected {emotion}"],
+                        "emotion_detail": f"The detected expression looks {dominant_emotion}.",
+                        "confidence": "High" if stress_level != 'Moderate' else 'Moderate',
+                        "summary": f"DeepFace detected a {dominant_emotion} expression and estimated a {stress_level.lower()} stress level.",
                     })
             finally:
-                if os.path.exists(tmp_path):
+                if tmp_path and os.path.exists(tmp_path):
                     os.remove(tmp_path)
-        except Exception as le:
-            print(f">>> Local analysis error: {le}")
+        except Exception as exc:
+            logger.exception('DeepFace analysis failed: %s', exc)
+            local_result['stress_cues'] = [f"DeepFace analysis failed: {exc}"]
+            local_result['summary'] = 'DeepFace analysis failed; using local fallback estimate.'
     else:
-        local_result["stress_cues"] = ["Local analysis unavailable (DeepFace disabled)"]
+        logger.warning('DeepFace unavailable: %s', DEEPFACE_IMPORT_ERROR or 'unknown error')
+        local_result['stress_cues'] = [f"DeepFace unavailable: {DEEPFACE_IMPORT_ERROR or 'unknown error'}"]
+        local_result['summary'] = 'DeepFace import failed; using local fallback estimate.'
 
     # --- 2. HYBRID ENHANCEMENT WITH GEMINI ---
     try:
